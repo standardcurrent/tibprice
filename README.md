@@ -3,6 +3,10 @@
 
 Easily access your Tibber electricity prices directly from your command line! The Tibber Price Tool provides a quick and efficient way to check current and upcoming energy costs. It smartly caches data to give you instant results while minimizing calls to the Tibber API.
 
+## Disclaimer
+
+This tool is an independent project and is not affiliated with, created by, or endorsed by Tibber. It is a third-party application that utilizes the Tibber API to access electricity price data. All Tibber trademarks, logos, and brand identifiers are the property of Tibber.
+
 ## Usage
 
 ### Features
