@@ -1,0 +1,180 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches:
+    - main
+#  schedule:
+#  - cron: '00 01 * * *'
+
+# The section is needed to drop write-all permissions that are granted on
+# `schedule` event. By specifying any permission explicitly all others are set
+# to none. By using the principle of least privilege the damage a compromised
+# workflow can do (because of an injection or compromised third party tool or
+# action) is restricted. Currently the worklow doesn't need any additional
+# permission except for pulling the code. Adding labels to issues, commenting
+# on pull-requests, etc. may need additional permissions:
+#
+# Syntax for this section:
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+#
+# Reference for how to assign permissions on a job-by-job basis:
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+#
+# Reference for available permissions that we can enable if needed:
+# https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+permissions:
+  # to fetch code (actions/checkout)
+  contents: read
+
+jobs:
+  test:
+    name: test
+    env:
+      # For some builds, we use cross to test on 32-bit and big-endian
+      # systems.
+      CARGO: cargo
+      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
+      # Note that we only use cross on Linux, so setting a target on a
+      # different OS will just use normal cargo.
+      TARGET_FLAGS:
+      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
+      TARGET_DIR: ./target
+      # Bump this as appropriate. We pin to a version to make sure CI
+      # continues to work as cross releases in the past have broken things
+      # in subtle ways.
+      CROSS_VERSION: v0.2.5
+      # Emit backtraces on panics.
+      RUST_BACKTRACE: 1
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        # Mac
+        - build: macOS-ARM64
+          target: aarch64-apple-darwin
+          os: macos-latest
+        - build: macOS-Intel
+          target: x86_64-apple-darwin
+          os: macos-latest
+
+        # Linux
+        - build: Linux-ARM64
+          target: aarch64-unknown-linux-gnu
+          os: ubuntu-latest
+        - build:  Linux-Intel64
+          target: x86_64-unknown-linux-gnu
+          os: ubuntu-latest
+        - build: Linux-Intel32
+          target: i686-unknown-linux-gnu
+          os: ubuntu-latest
+        - build: LinuxAlpine-Intel64
+          target: x86_64-unknown-linux-musl
+          os: ubuntu-latest
+        - build: LinuxAlpine-ARM64
+          target: aarch64-unknown-linux-musl
+          os: ubuntu-latest
+        - build: Linux-Armv7
+          target: armv7-unknown-linux-gnueabihf
+          os: ubuntu-latest
+
+        # Windows
+        - build: Windows-Intel64
+          target: x86_64-pc-windows-msvc
+          os: windows-latest
+        - build: Windows-Intel32
+          target: i686-pc-windows-msvc
+          os: windows-latest
+        - build: Windows-ARM64
+          target: aarch64-pc-windows-msvc
+          os:	windows-latest
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install packages (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'  
+      run: |
+        ci/ubuntu-install-packages
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+  
+    - name: Use Cross
+      if: matrix.os == 'ubuntu-latest' && matrix.target != ''
+      run: |
+        # In the past, new releases of 'cross' have broken CI. So for now, we
+        # pin it. We also use their pre-compiled binary releases because cross
+        # has over 100 dependencies and takes a bit to compile.
+        dir="$RUNNER_TEMP/cross-download"
+        mkdir "$dir"
+        echo "$dir" >> $GITHUB_PATH
+        cd "$dir"
+        curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
+        tar xf cross-x86_64-unknown-linux-musl.tar.gz
+        echo "CARGO=cross" >> $GITHUB_ENV
+        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+    - name: Show command used for Cargo
+      run: |
+        echo "cargo command is: ${{ env.CARGO }}"
+        echo "target flag is: ${{ env.TARGET_FLAGS }}"
+        echo "target dir is: ${{ env.TARGET_DIR }}"
+
+    - name: Build tibprice and all crates
+      run: ${{ env.CARGO }} build --verbose --workspace ${{ env.TARGET_FLAGS }}
+
+    # This is useful for debugging problems when the expected build artifacts
+    # (like shell completions and man pages) aren't generated.
+    - name: Show build.rs stderr
+      shell: bash
+      run: |
+        set +x
+        stderr="$(find "${{ env.TARGET_DIR }}/debug" -name stderr -print0 | xargs -0 ls -t | head -n1)"
+        if [ -s "$stderr" ]; then
+          echo "===== $stderr ===== "
+          cat "$stderr"
+          echo "====="
+        fi
+        set -x
+
+    - name: Run tests (with cross)
+      # These tests should actually work, but they almost double the runtime.
+      # Every integration test spins up qemu to run 'rg', and when PCRE2 is
+      # enabled, every integration test is run twice: one with the default
+      # regex engine and once with PCRE2.
+      if: matrix.target != ''
+      run: ${{ env.CARGO }} test --verbose --workspace ${{ env.TARGET_FLAGS }}
+
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+        components: rustfmt
+    - name: Check formatting
+      run: cargo fmt --all --check
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --document-private-items --workspace
