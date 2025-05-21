@@ -146,9 +146,7 @@ pub fn start_background_worker(
                 }
             };
 
-            let wait_time_new_list = price_list
-                .duration_to_new_price_list(&update_time)
-                .unwrap_or(Duration::from_secs(0));
+            let wait_time_new_list = price_list.duration_to_new_price_list(&update_time);
 
             // Add random jitter to the wait time. Between 0 and 60 seconds.
             let jitter_millis = rand::rng().random_range(0..=60000);
