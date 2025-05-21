@@ -110,9 +110,50 @@ tibprice --token YOUR_TOKEN daemon
 - `--initial-delay`, `-d`: Initial delay for Tibber API requests in seconds (default: 1)
 - `--max-delay`, `-D`: Maximum delay for Tibber API requests in seconds (default: 60)
 - `--price-update-time`, `-u`: Time of day when new prices are expected to be available (24-hour format, HH:MM) (default: 13:00)
-- `--connect-mode`, `-c`: Connection mode for the Tibber API. Options: `auto` (only connect if new prices are expected), `never`, `always` (default: auto)
 - `--output-format`, `-o`: Output style of the active price. Options: `json`, `jsonpretty`, `plain`, `csv`, `none` (default: json)
 - `--log-level`, `-l`: Set the log level. Options: `off`, `error`, `warn`, `info`, `debug`, `trace` (default: warn)
+
+### Output mode formats
+
+The Tibber Price Tool supports multiple output formats to display price data:
+
+1. **JSON** (default): Compact single-line JSON format containing the current price and start time.
+   ```json
+   {"price":0.95,"starts_at":"2023-05-15T12:00:00+02:00"}
+   ```
+   If no price is available, it will be null.
+
+2. **JSONPretty**: Formatted JSON with indentation and line breaks for better readability.
+   ```json
+   {
+     "price": 0.95,
+     "starts_at": "2023-05-15T12:00:00+02:00"
+   }
+   ```
+   If no price is available, it will be null.
+
+3. **CSV**: Simple comma-separated values format with price and start time.
+   ```
+   0.95,2023-05-15T12:00:00+02:00
+   ```
+   If no price is available, it will be blank:
+   ```
+   ,2023-05-15T12:00:00+02:00
+   ```
+
+
+4. **Plain**: Only the price value as plain text, useful for integrations with other tools.
+   ```
+   0.95
+   ```
+   If no price is available, returns "unavailable".
+
+5. **None**: No output (silent operation).
+
+Select your preferred format using the `--output-format` or `-o` parameter:
+```bash
+tibprice --token YOUR_TOKEN price --output-format plain
+```
 
 ### License
 
