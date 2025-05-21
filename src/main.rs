@@ -1,12 +1,11 @@
 use anyhow::Result;
 use chrono::Utc;
 use clap::{Parser, Subcommand, ValueEnum};
-use dotenv::dotenv;
 use log::{LevelFilter, debug, error, info, warn};
 use pricing::{OutputFormat, PricePoints};
 use serde_json::json;
-use std::sync::Arc;
 use std::time::Duration;
+use std::{env, sync::Arc};
 use tibberapi::{ConnectMode, TibberClient};
 
 pub mod pricing;
@@ -18,7 +17,18 @@ pub mod utils;
 #[command(
     name = "tibprice",
     version,
-    about = "Tibber price tool: Get the active energy price from Tibber. It's very fast because it uses a local cache and only connects to Tibber when needed."
+    about = "Get the active energy price from Tibber. (Use --help for full details)",
+    long_about = r#"Tibber price tool provides real-time energy pricing from Tibber's API.
+
+Configuration options:
+- Environment variables can be set in a .env file in the current directory
+- Arguments can be loaded from files using @filename syntax, where each line in the file is treated as a separate argument
+
+Examples:
+  tibprice --token YOUR_API_TOKEN price
+  tibprice @config.args price
+
+The tool is very fast because it caches prices locally and only connects to Tibber when necessary based on the configured update time."#
 )]
 struct Cli {
     /// Tibber API access token
@@ -256,8 +266,15 @@ fn start_daemon(cli: &Cli, client: &TibberClient) {
 }
 
 fn main() -> Result<()> {
-    dotenv().ok();
-    let cli = Cli::parse();
+    // Load .env file from current directory
+    dotenvy::from_filename(".env").ok();
+
+    // Expand arguments from files
+    let args = argfile::expand_args_from(env::args_os(), argfile::parse_fromfile, argfile::PREFIX)
+        .expect("Failed to expand arguments");
+
+    // Parse command line
+    let cli = Cli::parse_from(args);
 
     // Initialize the logger with appropriate verbosity
     env_logger::Builder::new()
@@ -289,7 +306,9 @@ fn main() -> Result<()> {
             start_daemon(&cli, &tibber_client)
         }
     }
-
+    let foo = 5;
+    print!("{foo}");
+ 
     info!("Tibber price tool completed");
     Ok(())
 }
