@@ -306,9 +306,7 @@ fn main() -> Result<()> {
             start_daemon(&cli, &tibber_client)
         }
     }
-    let foo = 5;
-    print!("{foo}");
- 
+
     info!("Tibber price tool completed");
     Ok(())
 }

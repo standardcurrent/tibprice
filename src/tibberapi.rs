@@ -97,13 +97,13 @@ impl TibberClient {
         }
 
         Ok(Self {
-            connect_mode: connect_mode,
+            connect_mode,
             access_token: access_token.unwrap_or("").to_string(),
             home_id: home_id.map(|s| s.to_string()),
             client: blocking::Client::new(),
-            max_retries: max_retries,
-            initial_delay_ms: initial_delay_ms,
-            max_delay_ms: max_delay_ms,
+            max_retries,
+            initial_delay_ms,
+            max_delay_ms,
             api_url: "https://api.tibber.com/v1-beta/gql".to_string(),
         })
     }

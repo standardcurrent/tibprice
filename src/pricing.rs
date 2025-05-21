@@ -26,6 +26,12 @@ pub enum OutputFormat {
     Plain,
 }
 
+impl Default for ActivePrice {
+    fn default() -> Self {
+        ActivePrice::new()
+    }
+}
+
 impl ActivePrice {
     pub fn new() -> Self {
         Self {
@@ -168,7 +174,7 @@ impl PricePoints {
 
         if self.is_empty() {
             debug!("Price points is empty, returning empty active price");
-            return ActivePrice::new();
+            return ActivePrice::default();
         }
 
         // Find the price point that has starts_at <= now utc < ends_at
@@ -186,7 +192,7 @@ impl PricePoints {
         }
 
         debug!("No active price found");
-        ActivePrice::new()
+        ActivePrice::default()
     }
 
     /// Returns the duration to the next active price.
@@ -432,9 +438,7 @@ mod tests {
         };
 
         // Create a new PricePoints with these prices
-        let mut prices = Vec::new();
-        prices.push(yesterday_price);
-        prices.push(tomorrow_price);
+        let prices = vec![yesterday_price, tomorrow_price];
         let price_points = PricePoints::from_prices(prices);
 
         assert!(price_points.has_today_prices());
@@ -459,9 +463,7 @@ mod tests {
         };
 
         // Create a new PricePoints with these prices
-        let mut prices = Vec::new();
-        prices.push(today_price);
-        prices.push(day_after_tomorrow_price);
+        let prices = vec![today_price, day_after_tomorrow_price];
         let price_points = PricePoints::from_prices(prices);
 
         assert!(price_points.has_tomorrows_prices());
@@ -485,9 +487,7 @@ mod tests {
         };
 
         // Create a new PricePoints with these prices
-        let mut prices = Vec::new();
-        prices.push(current_price.clone());
-        prices.push(next_price);
+        let prices = vec![current_price.clone(), next_price];
         let price_points = PricePoints::from_prices(prices);
 
         let current = price_points.get_active_price();

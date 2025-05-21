@@ -28,7 +28,7 @@ pub fn format_duration(ms: u64) -> String {
     if rem_minutes == 0 {
         return format!("{}h", hours);
     }
-    return format!("{}h {}m", hours, rem_minutes);
+    format!("{}h {}m", hours, rem_minutes)
 }
 
 /// Formats a std::time::Duration into a human-readable string
