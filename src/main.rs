@@ -1,12 +1,12 @@
 use anyhow::Result;
 use chrono::Utc;
 use clap::{Parser, Subcommand, ValueEnum};
-use log::{LevelFilter, debug, error, info, warn};
+use log::{LevelFilter, debug, error, info};
 use pricing::{OutputFormat, PricePoints};
 use serde_json::json;
 use std::time::Duration;
 use std::{env, sync::Arc};
-use tibberapi::{ConnectMode, TibberClient};
+use tibberapi::TibberClient;
 
 pub mod pricing;
 pub mod shared_buffer;
@@ -59,10 +59,6 @@ struct Cli {
     #[arg(short = 'u', long, default_value = "13:00")]
     price_update_time: String,
 
-    /// Connection mode for the Tibber API. auto = Only connect to Tibber if new prices are to be expected.
-    #[arg(short, long, default_value = "auto")]
-    connect_mode: ConnectMode,
-
     /// Output style of the active price. Use "none" to not display the price.
     #[arg(short, long, default_value = "json")]
     output_format: OutputFormat,
@@ -110,12 +106,7 @@ impl From<CliLevelFilter> for LevelFilter {
     }
 }
 
-fn print_homes(cli: &Cli, client: &TibberClient) {
-    if cli.connect_mode == ConnectMode::Never {
-        error!("Connect mode is set to Never.");
-        return;
-    }
-
+fn print_homes(client: &TibberClient) {
     debug!("Fetching home IDs from Tibber API");
     let home_ids = client.fetch_home_ids();
     let homes = home_ids
@@ -210,20 +201,13 @@ fn start_daemon(cli: &Cli, client: &TibberClient) {
     let shared_prices = Arc::new(shared_buffer::SharedPricePoints::new(prices_from_file));
 
     // Start the background worker with an hourly update interval
-    match client.connect_mode {
-        ConnectMode::Never => {
-            warn!("Not starting background worker because connect mode is set to never.")
-        }
-        _ => {
-            info!("Starting background worker");
-            shared_buffer::start_background_worker(
-                Arc::clone(&shared_prices),
-                background_client,
-                cli.prices_file.clone(),
-                update_time,
-            );
-        }
-    }
+    info!("Starting background worker");
+    shared_buffer::start_background_worker(
+        Arc::clone(&shared_prices),
+        background_client,
+        cli.prices_file.clone(),
+        update_time,
+    );
 
     // Check if we need to wait for the first price to arrive.
     // This ensures we don't show an empty active price while waiting for the first price.
@@ -284,7 +268,6 @@ fn main() -> Result<()> {
     info!("Starting Tibber price tool");
 
     let tibber_client = TibberClient::try_new(
-        cli.connect_mode,
         Some(&cli.token),
         cli.home_id.as_deref(),
         cli.max_retries,
@@ -299,7 +282,7 @@ fn main() -> Result<()> {
         }
         Commands::Homes => {
             debug!("Executing Homes command");
-            print_homes(&cli, &tibber_client)
+            print_homes(&tibber_client)
         }
         Commands::Daemon => {
             debug!("Executing Daemon command");

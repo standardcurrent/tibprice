@@ -1,23 +1,14 @@
 use crate::utils;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use clap::ValueEnum;
 use log::{debug, error, info, trace, warn};
 use reqwest::blocking;
 use serde::{Deserialize, Serialize};
 use std::thread;
 use std::time::Duration;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
-pub enum ConnectMode {
-    Auto,
-    Never,
-    Always,
-}
-
 #[derive(Debug)]
 pub struct TibberClient {
-    pub connect_mode: ConnectMode,
     access_token: String,
     home_id: Option<String>,
 
@@ -77,27 +68,22 @@ pub struct PricePoint {
 
 impl TibberClient {
     pub fn try_new(
-        connect_mode: ConnectMode,
         access_token: Option<&str>,
         home_id: Option<&str>,
         max_retries: u32,
         initial_delay_ms: u64,
         max_delay_ms: u64,
     ) -> Result<Self> {
-        if connect_mode != ConnectMode::Never && access_token.is_none() {
-            error!("Access token is required when connect mode is not Never");
-            return Err(anyhow::anyhow!(
-                "Access token is required when connect mode is not Never"
-            ));
+        if access_token.is_none() {
+            error!("Access token is required");
+            return Err(anyhow::anyhow!("Access token is required"));
         }
 
-        debug!("Creating TibberClient with connect_mode={:?}", connect_mode);
         if let Some(home_id) = home_id {
             debug!("Using home_id: {}", home_id);
         }
 
         Ok(Self {
-            connect_mode,
             access_token: access_token.unwrap_or("").to_string(),
             home_id: home_id.map(|s| s.to_string()),
             client: blocking::Client::new(),
@@ -115,7 +101,6 @@ impl TibberClient {
         max_delay_ms: u64,
     ) -> Self {
         Self::try_new(
-            self.connect_mode,
             Some(&self.access_token),
             self.home_id.as_deref(),
             max_retries,
@@ -269,7 +254,6 @@ mod tests {
         let mock_server = Server::new();
 
         let mut client = TibberClient::try_new(
-            ConnectMode::Auto,
             Some("test-api-key"),
             None,
             3,

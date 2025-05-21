@@ -1,4 +1,4 @@
-use crate::tibberapi::{ConnectMode, PricePoint, TibberClient};
+use crate::tibberapi::{PricePoint, TibberClient};
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Local, NaiveTime, Utc};
 use clap::ValueEnum;
@@ -368,14 +368,8 @@ impl PricePoints {
         prices_file: &str,
         update_time: &NaiveTime,
     ) -> Result<bool> {
-        let should_contact_tibber = match client.connect_mode {
-            ConnectMode::Never => false,
-            ConnectMode::Always => true,
-            ConnectMode::Auto => self.should_fetch_prices(update_time),
-        };
-
-        if !should_contact_tibber {
-            debug!("Decided not to contact Tibber API at this momement, using existing prices.");
+        if !self.should_fetch_prices(update_time) {
+            debug!("Decided not to contact Tibber API at this moment, using existing prices.");
             return Ok(false);
         }
 
