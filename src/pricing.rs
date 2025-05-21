@@ -50,12 +50,31 @@ impl ActivePrice {
     /// If there is no active price, it returns an empty string.
     pub fn to_string_pretty(&self, format: &OutputFormat) -> String {
         match format {
+            // Compact JSON format (single line without whitespace)
             OutputFormat::Json => serde_json::to_string(&self).expect("Unable to create json"),
+            // Pretty-printed JSON format (with indentation and newlines)
             OutputFormat::JsonPretty => {
                 serde_json::to_string_pretty(&self).expect("Unable to create json")
             }
-            OutputFormat::Csv => format!("{:?},{:?}", self.price, self.starts_at),
-            OutputFormat::Plain => format!("{:?}", self.price),
+            // CSV format (price,starts_at)
+            // Missing values are represented as empty strings
+            OutputFormat::Csv => {
+                let price_str = match self.price {
+                    Some(price) => price.to_string(),
+                    None => "".to_string(),
+                };
+                let time_str = match self.starts_at {
+                    Some(time) => time.to_string(),
+                    None => "".to_string(),
+                };
+                format!("{},{}", price_str, time_str)
+            }
+            // Plain text format (price)
+            // Missing values are represented as "unavailable"
+            OutputFormat::Plain => match self.price {
+                Some(price) => price.to_string(),
+                None => "unavailable".to_string(),
+            },
             _ => String::new(),
         }
     }
@@ -219,12 +238,12 @@ impl PricePoints {
     }
 
     /// Returns the duration to the next price list.
-    /// If the prices should be fetched immediately, it returns None.
-    pub fn duration_to_new_price_list(&self, update_time: &NaiveTime) -> Option<Duration> {
+    /// If the prices should be fetched immediately, it returns 0.
+    pub fn duration_to_new_price_list(&self, update_time: &NaiveTime) -> Duration {
         if !self.has_today_prices() {
             // We don't have today's prices, we can fetch them immediately.
-            debug!("No today's prices, can fetch immediately");
-            return None;
+            debug!("Missing today's prices, can fetch immediately");
+            return Duration::from_millis(0);
         }
 
         // Determine some dates and times
@@ -248,9 +267,7 @@ impl PricePoints {
                 "Tomorrow's prices are already available, should wait until {} local time tomorrow",
                 update_time.format("%H:%M")
             );
-            return Some(Duration::from_millis(
-                chrono_duration.num_milliseconds() as u64
-            ));
+            return Duration::from_millis(chrono_duration.num_milliseconds() as u64);
         }
 
         // At this point we know that we have today's prices, but not tomorrow's.
@@ -262,7 +279,7 @@ impl PricePoints {
                 "It's past {} local time today, can fetch immediately",
                 update_time.format("%H:%M")
             );
-            return None;
+            return Duration::from_millis(0);
         }
 
         // We have to wait until the configured update time today.
@@ -272,9 +289,7 @@ impl PricePoints {
             update_time.format("%H:%M"),
             chrono_duration
         );
-        Some(Duration::from_millis(
-            chrono_duration.num_milliseconds() as u64
-        ))
+        Duration::from_millis(chrono_duration.num_milliseconds() as u64)
     }
 
     pub fn latest_price_date(&self) -> Option<DateTime<Utc>> {
