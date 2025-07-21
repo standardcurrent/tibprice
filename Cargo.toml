@@ -13,7 +13,7 @@ clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
 dotenvy = "0.15"
 log = "0.4"
 env_logger = "0.11"
-rand = "0.9.1"
+rand = "0.9.2"
 argfile = "0.2.1"
 
 
